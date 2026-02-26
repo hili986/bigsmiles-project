@@ -553,5 +553,35 @@
     "explanation_cn": "PDMS 由环硅氧烷开环聚合或氯硅烷水解缩聚而成。重复单元含 Si-O 键和两个甲基侧基，使用 AB 型描述符。",
     "explanation_en": "PDMS is formed by ring-opening polymerization of cyclosiloxanes or hydrolytic condensation of chlorosilanes. The repeat unit has Si-O bonds and two methyl groups, using AB-type descriptors.",
     "source": "Lin et al. 2019"
+  },
+  {
+    "id": "13.1",
+    "category_cn": "核酸聚合物",
+    "category_en": "Nucleic Acid Polymer",
+    "name_cn": "单链DNA（PD-L1适配体）",
+    "name_en": "ssDNA (PD-L1 Aptamer)",
+    "mechanism_cn": "固相亚磷酰胺合成",
+    "bonding_type": "AB",
+    "bigsmiles": "O{[>]CC3OC(n1cnc2c(N)ncnc12)CC3OP(=O)(O)O[<],[>]CC3OC(n1cc(C)c(=O)[nH]c1=O)CC3OP(=O)(O)O[<],[>]CC3OC(n1cnc2c(=O)[nH]c(N)nc12)CC3OP(=O)(O)O[<],[>]CC3OC(n1ccc(N)nc1=O)CC3OP(=O)(O)O[<];[>]CC3OC(n1cnc2c(N)ncnc12)CC3O,[>]CC3OC(n1cc(C)c(=O)[nH]c1=O)CC3O,[>]CC3OC(n1cnc2c(=O)[nH]c(N)nc12)CC3O,[>]CC3OC(n1ccc(N)nc1=O)CC3O}",
+    "smiles_repeat_unit": "*CC3OC(n1cnc2c(N)ncnc12)CC3OP(=O)(O)O*",
+    "structure_ascii": "5'-HO—[dNMP]n—OH-3'  (dN = dA, dT, dG, dC)",
+    "explanation_cn": "单链DNA（ssDNA）由脱氧核苷酸通过3',5'-磷酸二酯键连接而成。4种重复单元分别对应腺嘌呤(dA)、胸腺嘧啶(dT)、鸟嘌呤(dG)、胞嘧啶(dC)脱氧核苷酸，逗号分隔表示随机排列。每个重复单元包含脱氧核糖五元环(环闭合编号3)和磷酸二酯桥连基团。5'端为确定性羟基端基(O)，3'端为随机核苷端基(无尾部磷酸)。此示例对应PD-L1适配体序列 5'-ACGGGCCACATCAACTCATTGATAGACAATGCGTCCACTGCCCGT-3'（44 nt），但BigSMILES仅能表示聚合物类别，无法编码特定碱基序列。使用AB型描述符[>]/[<]反映磷酸二酯键的方向性(3'→5')。",
+    "explanation_en": "Single-stranded DNA (ssDNA) consists of deoxyribonucleotides linked by 3',5'-phosphodiester bonds. The 4 repeat units correspond to deoxyadenosine (dA), deoxythymidine (dT), deoxyguanosine (dG), and deoxycytidine (dC), comma-separated to indicate stochastic arrangement. Each repeat unit contains a deoxyribose furanose ring (ring closure 3) and a phosphodiester bridging group. The 5' end has a deterministic hydroxyl (O), while the 3' end has stochastic nucleoside end groups (without trailing phosphate). This example corresponds to the PD-L1 aptamer sequence 5'-ACGGGCCACATCAACTCATTGATAGACAATGCGTCCACTGCCCGT-3' (44 nt), but BigSMILES can only represent the polymer class, not the specific base sequence. AB-type descriptors [>]/[<] reflect the directionality of the phosphodiester backbone (3'->5').",
+    "source": "BigSMILES nucleic acid extension (this work)"
+  },
+  {
+    "id": "13.2",
+    "category_cn": "核酸聚合物",
+    "category_en": "Nucleic Acid Polymer",
+    "name_cn": "单链RNA",
+    "name_en": "ssRNA (Single-Stranded RNA)",
+    "mechanism_cn": "固相合成/体外转录",
+    "bonding_type": "AB",
+    "bigsmiles": "O{[>]CC3OC(n1cnc2c(N)ncnc12)C(O)C3OP(=O)(O)O[<],[>]CC3OC(n1ccc(=O)[nH]c1=O)C(O)C3OP(=O)(O)O[<],[>]CC3OC(n1cnc2c(=O)[nH]c(N)nc12)C(O)C3OP(=O)(O)O[<],[>]CC3OC(n1ccc(N)nc1=O)C(O)C3OP(=O)(O)O[<];[>]CC3OC(n1cnc2c(N)ncnc12)C(O)C3O,[>]CC3OC(n1ccc(=O)[nH]c1=O)C(O)C3O,[>]CC3OC(n1cnc2c(=O)[nH]c(N)nc12)C(O)C3O,[>]CC3OC(n1ccc(N)nc1=O)C(O)C3O}",
+    "smiles_repeat_unit": "*CC3OC(n1cnc2c(N)ncnc12)C(O)C3OP(=O)(O)O*",
+    "structure_ascii": "5'-HO—[NMP]n—OH-3'  (N = A, U, G, C)",
+    "explanation_cn": "单链RNA（ssRNA）与ssDNA的区别在于两点：(1) 糖基为核糖而非脱氧核糖，C2'位含羟基 C(O)（对比DNA的 CC）；(2) 碱基中以尿嘧啶(U)替代胸腺嘧啶(T)，尿嘧啶无5位甲基。4种重复单元对应腺苷(A)、尿苷(U)、鸟苷(G)、胞苷(C)。主链同样通过3',5'-磷酸二酯键连接，使用AB型描述符。2'-OH的存在使RNA比DNA更易水解，也赋予其更丰富的二级结构。",
+    "explanation_en": "Single-stranded RNA (ssRNA) differs from ssDNA in two ways: (1) the sugar is ribose instead of deoxyribose, with a 2'-hydroxyl C(O) (vs CC in DNA); (2) uracil (U) replaces thymine (T), lacking the 5-methyl group. The 4 repeat units correspond to adenosine (A), uridine (U), guanosine (G), and cytidine (C). The backbone is also linked by 3',5'-phosphodiester bonds using AB-type descriptors. The 2'-OH makes RNA more susceptible to hydrolysis than DNA and enables richer secondary structures.",
+    "source": "BigSMILES nucleic acid extension (this work)"
   }
 ]

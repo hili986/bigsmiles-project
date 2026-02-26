@@ -1,4 +1,7 @@
 __pycache__/
 *.pyc
 output/images/
+output/sequence_images/
+output/sequence_records/
+.claude/
 _tmp_*.txt

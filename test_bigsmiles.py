@@ -2,7 +2,7 @@
 BigSMILES 测试套件
 BigSMILES Test Suite
 
-- 正向测试: 37 个示例库条目必须全部通过
+- 正向测试: 39 个示例库条目必须全部通过
 - 负向测试: ~10 个非法输入必须被拒绝
 - 边界测试: ~6 个边界情况
 
@@ -25,7 +25,7 @@ from bigsmiles_examples import EXAMPLES, to_json, get_examples
 
 
 class TestPositive(unittest.TestCase):
-    """正向测试 — 示例库全部 37 个条目必须通过语法检查。"""
+    """正向测试 — 示例库全部 39 个条目必须通过语法检查。"""
 
     def _check(self, example):
         result = check_bigsmiles(example["bigsmiles"], verbose=False)
@@ -146,9 +146,15 @@ class TestPositive(unittest.TestCase):
     def test_12_4_pdms(self):
         self._check(EXAMPLES[36])
 
-    def test_all_37_examples_count(self):
-        """确认示例库恰好包含 37 个条目。"""
-        self.assertEqual(len(EXAMPLES), 37)
+    def test_13_1_ssdna_pdl1_aptamer(self):
+        self._check(EXAMPLES[37])
+
+    def test_13_2_ssrna(self):
+        self._check(EXAMPLES[38])
+
+    def test_all_39_examples_count(self):
+        """确认示例库恰好包含 39 个条目。"""
+        self.assertEqual(len(EXAMPLES), 39)
 
 
 class TestNegative(unittest.TestCase):
@@ -282,7 +288,7 @@ class TestExamplesLibrary(unittest.TestCase):
     """示例库功能测试。"""
 
     def test_example_count(self):
-        self.assertEqual(len(get_examples()), 37)
+        self.assertEqual(len(get_examples()), 39)
 
     def test_all_have_required_fields(self):
         required_fields = [
@@ -294,9 +300,9 @@ class TestExamplesLibrary(unittest.TestCase):
             for field in required_fields:
                 self.assertIn(field, ex, f"Example {ex.get('id', '?')} missing field: {field}")
 
-    def test_12_categories(self):
+    def test_13_categories(self):
         categories = set(e["category_cn"] for e in EXAMPLES)
-        self.assertEqual(len(categories), 12)
+        self.assertEqual(len(categories), 13)
 
     def test_to_json(self):
         output_path = os.path.join(os.path.dirname(__file__), "output", "test_output.json")
@@ -304,7 +310,7 @@ class TestExamplesLibrary(unittest.TestCase):
         self.assertTrue(os.path.exists(output_path))
         with open(output_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        self.assertEqual(len(data), 37)
+        self.assertEqual(len(data), 39)
         # 清理
         os.remove(output_path)
 
