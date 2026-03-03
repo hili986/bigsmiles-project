@@ -462,7 +462,7 @@ def tg_regression_demo(use_morgan: bool = True,
         print(f"  Train: {result['num_train']}, Test: {result['num_test']}, "
               f"Skipped: {result['num_skipped']}")
         print(f"  Features: {result['num_features']}")
-        print(f"  R²:   {result['r2']}")
+        print(f"  R2:   {result['r2']}")
         print(f"  MAE:  {result['mae']} K")
         print(f"  RMSE: {result['rmse']} K")
 
