@@ -1,23 +1,30 @@
-# BigSMILES 编码复现、示例库、语法检查器与核酸序列转换工具
+# BigSMILES 工具集：编码、检查、解析、数据集与结构指纹
 
-SITP 项目"人工智能辅助高分子材料设计"交付物，基于 Lin et al. 2019 论文复现。
+SITP 项目"人工智能辅助高分子材料设计"交付物，基于 Lin et al. 2019 论文复现与扩展。
 
 ## 项目结构
 
 ```
 bigsmiles_project/
-├── bigsmiles_examples.py        # 示例库（39 个聚合物 BigSMILES 编码）
-├── bigsmiles_checker.py         # 语法检查器（分词 → 解析 → 校验）
-├── sequence_to_bigsmiles.py     # 核酸序列 → BigSMILES / Full SMILES 转换工具
-├── test_bigsmiles.py            # 示例库 & 检查器测试套件（65 个用例）
-├── test_sequence_to_bigsmiles.py # 序列转换工具测试套件（31 个用例）
-├── 方法论.md                     # 核酸序列 BigSMILES 表示方法论文档
+├── bigsmiles_examples.py          # 示例库（39 个聚合物 BigSMILES 编码）
+├── bigsmiles_checker.py           # 语法检查器（分词 → 解析 → 校验）
+├── bigsmiles_parser.py            # 解析器 & 生成器 API（AST 操作 + 拓扑分析）
+├── bicerano_tg_dataset.py         # Bicerano Tg 数据集（304 个线性均聚物）
+├── bigsmiles_fingerprint.py       # 结构指纹 & ML 特征桥接
+├── sequence_to_bigsmiles.py       # 核酸序列 → BigSMILES / Full SMILES 转换工具
+├── test_bigsmiles.py              # 示例库 & 检查器测试（65 个用例）
+├── test_bigsmiles_parser.py       # 解析器测试（41 个用例）
+├── test_bicerano_tg.py            # 数据集测试（37 个用例）
+├── test_bigsmiles_fingerprint.py  # 指纹测试（48 个用例）
+├── test_sequence_to_bigsmiles.py  # 序列转换工具测试（31 个用例）
+├── 方法论.md                       # 核酸序列 BigSMILES 表示方法论文档
+├── CLAUDE.md                      # 项目架构文档
 ├── README.md
 └── output/
-    ├── bigsmiles_examples.json  # 示例库 JSON 导出
-    ├── images/                  # RDKit 生成的重复单元结构图（PNG）
-    ├── sequence_images/         # 核酸序列 3D 结构(.sdf) + 2D 着色图(.png)
-    └── sequence_records/        # 每次转换自动保存的 JSON 记录
+    ├── bigsmiles_examples.json    # 示例库 JSON 导出
+    ├── images/                    # RDKit 生成的重复单元结构图（PNG）
+    ├── sequence_images/           # 核酸序列 3D 结构(.sdf) + 2D 着色图(.png)
+    └── sequence_records/          # 每次转换自动保存的 JSON 记录
 ```
 
 ## 环境要求
@@ -30,9 +37,8 @@ bigsmiles_project/
 ```bash
 cd bigsmiles_project
 
-# 1. 运行全部测试（验证全部功能）
-python -m unittest test_bigsmiles -v
-python -m unittest test_sequence_to_bigsmiles -v
+# 1. 运行全部测试（222 个用例，验证全部功能）
+python -m unittest discover -v
 
 # 2. 终端查看全部 39 个示例
 python bigsmiles_examples.py
@@ -45,7 +51,16 @@ python bigsmiles_examples.py --images
 python bigsmiles_checker.py "{[$]CC[$]}"
 python bigsmiles_checker.py "{[>]CCO[<]}"
 
-# 5. 核酸序列转换
+# 5. 解析 BigSMILES 并分析拓扑
+python bigsmiles_parser.py "{[$]CC[$]}" --topology --units --descriptors
+
+# 6. 导出 Bicerano Tg 数据集
+python bicerano_tg_dataset.py --csv --json --validate
+
+# 7. 结构指纹 & Tg 回归演示
+python bigsmiles_fingerprint.py --demo
+
+# 8. 核酸序列转换
 python sequence_to_bigsmiles.py ACGT
 python sequence_to_bigsmiles.py AUGC --type RNA
 python sequence_to_bigsmiles.py ACGGGCCACATCAACTCATTGATAGACAATGCGTCCACTGCCCGT
@@ -242,9 +257,104 @@ python sequence_to_bigsmiles.py ACGT --output-dir ./my_output
 
 **自动记录：** 每次转换自动在 `output/sequence_records/` 保存一份 JSON，包含序列、BigSMILES、Full SMILES、RDKit 验证结果和原子数。
 
-### 4. 测试套件
+### 4. 解析器 & 生成器 API (`bigsmiles_parser.py`)
 
-共 **96 个测试用例**，分布在两个测试文件中：
+基于 `bigsmiles_checker.py` 的分词器和解析器，提供程序化 AST 访问和往返序列化。
+
+**核心功能：**
+
+```python
+from bigsmiles_parser import BigSMILESParser
+
+bp = BigSMILESParser()
+
+# 解析 → AST → 生成（往返一致性）
+ast = bp.parse("{[$]CC[$]}")
+string = bp.generate(ast)
+assert bp.round_trip("{[$]CC[$]}") == "{[$]CC[$]}"
+
+# 提取重复单元
+units = bp.get_repeat_units("{[$]CC[$],[$]CC(CC)[$]}")
+# [{"smiles": "*CC*", "depth": 0, ...}, {"smiles": "*CC(CC)*", "depth": 0, ...}]
+
+# 拓扑分析
+topo = bp.get_topology("{[$]CC(c1ccccc1)[$]}{[$]CC(C)(C(=O)OC)[$]}")
+# {"topology": "block_copolymer", "num_stochastic_objects": 2, ...}
+
+# 校验
+errors = bp.validate("{[$]CC[$]}")  # [] = 无错误
+```
+
+**拓扑检测支持的类型：**
+
+| 拓扑 | 示例 |
+|------|------|
+| `small_molecule` | `CCO` |
+| `linear_homopolymer` | `{[$]CC[$]}` |
+| `random_copolymer` | `{[$]CC[$],[$]CC(CC)[$]}` |
+| `block_copolymer` | `{[$]CC(c1ccccc1)[$]}{[$]CC(C)(C(=O)OC)[$]}` |
+| `graft_copolymer` | `{[$]CC(c1ccc(O{[>]CCO[<]})cc1)[$]}` |
+| `branched` | `{[$]CC[$],[$]CC([$])[$]}` |
+
+### 5. Bicerano Tg 数据集 (`bicerano_tg_dataset.py`)
+
+收录 **304 个线性均聚物** 的玻璃化转变温度（Tg），数据来源于 Choi et al., Scientific Data 11, 363 (2024)。
+
+每条数据包含：聚合物名称、重复单元 SMILES、BigSMILES 表示、Tg(K)。
+
+**API 函数：**
+
+| 函数 | 说明 |
+|------|------|
+| `load_dataset()` | 返回 304 条 dict 列表 |
+| `get_names()` / `get_smiles()` / `get_bigsmiles()` / `get_tg_values()` | 获取单列数据 |
+| `to_csv(path)` / `to_json(path)` | 导出为 CSV / JSON |
+| `validate_all()` | 用检查器校验所有 BigSMILES，返回失败列表 |
+| `summary()` | 数据集统计摘要 |
+| `shorthand_to_bracket(s)` | 简写转换：`{$CC$}` → `{[$]CC[$]}` |
+
+**CLI 用法：**
+
+```bash
+python bicerano_tg_dataset.py --csv --json --validate
+```
+
+### 6. 结构指纹 (`bigsmiles_fingerprint.py`)
+
+将 BigSMILES 聚合物映射为 ML 可用的数值特征向量，桥接表示法与性质预测。
+
+**三层特征体系：**
+
+| 层次 | 维度 | 说明 |
+|------|------|------|
+| Morgan/ECFP 指纹 | 2048 (默认) | RDKit `rdFingerprintGenerator` API，位向量 + 计数向量 |
+| 片段计数 | 15 | 官能团 SMARTS 模式匹配（芳环、醚、酯、酰胺、卤素等） |
+| 聚合物描述符 | 14 | 分子量、杂原子比、芳香度、logP、TPSA、键型等 |
+
+**API 函数：**
+
+| 函数 | 说明 |
+|------|------|
+| `morgan_fingerprint(smiles)` | Morgan 位向量指纹 |
+| `morgan_fingerprint_counts(smiles)` | Morgan 计数向量指纹 |
+| `fragment_counts(smiles)` / `fragment_vector(smiles)` | 官能团片段计数 |
+| `polymer_descriptors(smiles, bigsmiles)` / `descriptor_vector(smiles)` | 聚合物级描述符 |
+| `combined_fingerprint(smiles, bigsmiles)` | 组合特征向量（Morgan + 片段 + 描述符） |
+| `tg_regression_demo()` | 基于 Bicerano 数据集的岭回归 Tg 预测演示 |
+
+**CLI 用法：**
+
+```bash
+# Tg 回归演示（无需 numpy/sklearn）
+python bigsmiles_fingerprint.py --demo
+
+# 查看单个聚合物的指纹
+python bigsmiles_fingerprint.py "*CC*" --morgan --fragments --descriptors
+```
+
+### 7. 测试套件
+
+共 **222 个测试用例**，分布在 5 个测试文件中：
 
 **`test_bigsmiles.py`（65 个用例）：**
 
@@ -256,6 +366,44 @@ python sequence_to_bigsmiles.py ACGT --output-dir ./my_output
 | 分词器测试 (`TestTokenizer`) | 5 | Token 类型识别、描述符格式 |
 | 示例库测试 (`TestExamplesLibrary`) | 4 | 字段完整性、类别覆盖、JSON 导出 |
 
+**`test_bigsmiles_parser.py`（41 个用例）：**
+
+| 类别 | 数量 | 说明 |
+|------|------|------|
+| 基本解析 (`TestParserBasic`) | 9 | 均聚物、共聚物、嵌段、嵌套、端基、错误处理 |
+| 生成器 (`TestGenerator`) | 6 | AST → 字符串还原 |
+| 往返一致性 (`TestRoundTrip`) | 2 | 18 种结构的 parse→generate→parse 循环 |
+| 重复单元提取 (`TestRepeatUnitExtraction`) | 4 | 单元提取、嵌套深度、描述符信息 |
+| 键描述符提取 (`TestBondingDescriptorExtraction`) | 4 | AA/AB 型、编号描述符、端基描述符 |
+| 拓扑分析 (`TestTopologyAnalysis`) | 11 | 6 种拓扑类型检测 |
+| 校验接口 (`TestValidation`) | 3 | 有效/无效字符串校验 |
+| 示例库往返 (`TestExamplesRoundTrip`) | 1 | 39 个示例全部往返通过 |
+| 便捷函数 (`TestConvenienceFunctions`) | 1 | 模块级函数接口 |
+
+**`test_bicerano_tg.py`（37 个用例）：**
+
+| 类别 | 数量 | 说明 |
+|------|------|------|
+| 数据完整性 (`TestDataIntegrity`) | 9 | 条目数、结构、Tg 范围、括号标注、已知聚合物 |
+| load_dataset (`TestLoadDataset`) | 4 | 返回类型、字段、数量 |
+| Getter 函数 (`TestGetters`) | 4 | names/smiles/bigsmiles/tg_values |
+| CSV 导出 (`TestExportCSV`) | 2 | 导出 + 往返数据一致性 |
+| JSON 导出 (`TestExportJSON`) | 2 | 导出 + 数据类型保持 |
+| summary (`TestSummary`) | 3 | 统计摘要 |
+| 简写转换器 (`TestShorthandConverter`) | 9 | `$`/`<>`简写、已有括号、嵌套、空字符串 |
+| BigSMILES 校验 (`TestValidation`) | 4 | 304 条全部通过检查器 |
+
+**`test_bigsmiles_fingerprint.py`（48 个用例）：**
+
+| 类别 | 数量 | 说明 |
+|------|------|------|
+| Morgan 指纹 (`TestMorganFingerprint`) | 9 | 长度、二值性、区分度、半径、无效输入、计数向量 |
+| 片段计数 (`TestFragmentCounts`) | 12 | 芳环、醚、羰基、卤素、氟、硅、腈等官能团 |
+| 聚合物描述符 (`TestPolymerDescriptors`) | 11 | 分子量、碳比、杂原子、芳香度、键型 |
+| 组合指纹 (`TestCombinedFingerprint`) | 5 | 长度、类型、非零性、特征名匹配 |
+| Tg 回归演示 (`TestTgRegressionDemo`) | 7 | R2 范围、MAE、样本数、多种特征组合 |
+| Bicerano 指纹 (`TestBiceranoFingerprints`) | 2 | 304 条全部生成非零指纹 |
+
 **`test_sequence_to_bigsmiles.py`（31 个用例）：**
 
 | 类别 | 数量 | 说明 |
@@ -265,7 +413,7 @@ python sequence_to_bigsmiles.py ACGT --output-dir ./my_output
 | BigSMILES 生成 (`TestBigSMILESGenerator`) | 5 | 匹配 13.1/13.2 示例、通过检查器、序列无关性 |
 | 图像生成 (`TestImageGeneration`) | 4 | 短/中/长序列图像生成、端到端编排 |
 
-### 5. 方法论文档 (`方法论.md`)
+### 8. 方法论文档 (`方法论.md`)
 
 详细阐述核酸序列 BigSMILES 表示的方法选择依据：
 
@@ -307,4 +455,5 @@ O{[>]...[<];[>]...O}               核酸聚合物（ssDNA/ssRNA）
 - Lin, T. S.; Coley, C. W.; Mochigase, H.; Beesam, H. K.; Bilodeau, C.; et al. *BigSMILES: A Structurally-Based Line Notation for Describing Macromolecules.* ACS Cent. Sci. 2019, 5, 1523-1531.
 - Zhang, Z.; Interrante, L. M.; Greer, S. C.; Lin, T.-S. *G-BigSMILES: A Graph-Based Extension of BigSMILES.* Digital Discovery 2024.
 - Pistoia Alliance. *HELM Notation.* https://pistoiaalliance.atlassian.net/wiki/spaces/PUB/pages/6619143/HELM+Notation
+- Choi, S.; et al. *A curated dataset of glass transition temperatures for polymers.* Scientific Data 11, 363 (2024).
 - RDKit: Open-Source Cheminformatics. https://www.rdkit.org/

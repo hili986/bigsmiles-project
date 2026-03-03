@@ -5,3 +5,5 @@ output/sequence_images/
 output/sequence_records/
 .claude/
 _tmp_*.txt
+bicerano_tg.csv
+bicerano_tg.json
