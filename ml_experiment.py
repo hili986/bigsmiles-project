@@ -119,6 +119,19 @@ _DEFAULT_PARAMS: Dict[str, Dict[str, Any]] = {
 }
 
 
+def _get_model_params(model_name: str,
+                      overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+                      ) -> Dict[str, Any]:
+    """Return model hyperparameters with ``seed`` stripped out.
+
+    ``seed`` lives in ``_DEFAULT_PARAMS`` only to document the default value;
+    it is passed explicitly via ``cross_validate`` / ``train_test_split`` so
+    must be excluded when unpacking into ``get_model(**kwargs)``.
+    """
+    source = overrides or _DEFAULT_PARAMS
+    return {k: v for k, v in source.get(model_name, {}).items() if k != "seed"}
+
+
 def run_model_comparison(
     X: List[List[float]], y: List[float],
     k: int = 5, seed: int = 42,
@@ -135,8 +148,7 @@ def run_model_comparison(
     results = []
 
     for name in available_models():
-        kwargs = {kk: v for kk, v in params.get(name, {}).items()
-                  if kk != "seed"}
+        kwargs = _get_model_params(name, overrides=params)
         if verbose:
             print(f"  Running {name}...", end="", flush=True)
         t0 = time.time()
@@ -194,8 +206,7 @@ def run_feature_ablation(
     Returns:
         List of result dicts sorted by R2 descending.
     """
-    model_params = {kk: v for kk, v in _DEFAULT_PARAMS.get(model_name, {}).items()
-                    if kk != "seed"}
+    model_params = _get_model_params(model_name)
     results = []
 
     for config in _ABLATION_CONFIGS:
@@ -257,8 +268,7 @@ def run_morgan_sweep(
     if radius_list is None:
         radius_list = [1, 2, 3]
 
-    model_params = {kk: v for kk, v in _DEFAULT_PARAMS.get(model_name, {}).items()
-                    if kk != "seed"}
+    model_params = _get_model_params(model_name)
     results = []
 
     for radius in radius_list:
@@ -309,7 +319,7 @@ def run_holdout_evaluation(
     Returns:
         Dict with r2, mae, rmse, y_true, y_pred.
     """
-    model_params = _DEFAULT_PARAMS.get(model_name, {})
+    model_params = _get_model_params(model_name)
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_ratio=test_ratio, seed=seed)
 
     model = get_model(model_name, **model_params)

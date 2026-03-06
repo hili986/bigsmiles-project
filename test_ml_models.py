@@ -344,6 +344,32 @@ class TestKNNRegressor(unittest.TestCase):
         preds = model.predict(X[:5])
         self.assertEqual(len(preds), 5)
 
+    def test_n_neighbors_alias(self):
+        """n_neighbors should override k when both given."""
+        model = KNNRegressor(n_neighbors=7)
+        self.assertEqual(model.k, 7)
+
+    def test_n_neighbors_alias_overrides_k(self):
+        """n_neighbors takes precedence over positional k."""
+        model = KNNRegressor(k=3, n_neighbors=10)
+        self.assertEqual(model.k, 10)
+
+    def test_n_neighbors_default_falls_back_to_k(self):
+        """When n_neighbors is None, k is used."""
+        model = KNNRegressor(k=4)
+        self.assertEqual(model.k, 4)
+
+    def test_cross_validate_knn_with_n_neighbors(self):
+        """cross_validate k (folds) must not conflict with KNN n_neighbors.
+        Regression test for the k-parameter conflict bug.
+        """
+        X, y = _make_linear_data(n=60, seed=42)
+        # k=3 is CV folds, n_neighbors=5 is KNN neighbors — no conflict
+        result = cross_validate("knn", X, y, k=3, seed=42, n_neighbors=5)
+        self.assertEqual(result["k"], 3)
+        self.assertEqual(len(result["fold_results"]), 3)
+        self.assertIn("r2_mean", result)
+
 
 class TestDecisionTreeRegressor(unittest.TestCase):
     """Tests for Decision Tree Regressor."""

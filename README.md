@@ -1,4 +1,4 @@
-# BigSMILES 工具集：编码、检查、解析、数据集与结构指纹
+# BigSMILES 工具集：编码、检查、解析、数据集、指纹、ML 预测与 Web 演示
 
 SITP 项目"人工智能辅助高分子材料设计"交付物，基于 Lin et al. 2019 论文复现与扩展。
 
@@ -12,11 +12,18 @@ bigsmiles_project/
 ├── bicerano_tg_dataset.py         # Bicerano Tg 数据集（304 个线性均聚物）
 ├── bigsmiles_fingerprint.py       # 结构指纹 & ML 特征桥接
 ├── sequence_to_bigsmiles.py       # 核酸序列 → BigSMILES / Full SMILES 转换工具
+├── ml_models.py                   # 纯 Python ML 回归模型（7 种模型 + 交叉验证）
+├── ml_experiment.py               # Tg 预测实验框架（模型比较 + 特征消融 + 超参扫描）
+├── bigsmiles_annotation.py        # BigSMILES 性质标注扩展
+├── web_demo.py                    # 端到端 Web 演示（语法检查 → 解析 → 指纹 → Tg 预测）
 ├── test_bigsmiles.py              # 示例库 & 检查器测试（65 个用例）
 ├── test_bigsmiles_parser.py       # 解析器测试（41 个用例）
 ├── test_bicerano_tg.py            # 数据集测试（37 个用例）
 ├── test_bigsmiles_fingerprint.py  # 指纹测试（48 个用例）
 ├── test_sequence_to_bigsmiles.py  # 序列转换工具测试（31 个用例）
+├── test_ml_models.py              # ML 模型测试（69 个用例）
+├── test_annotation.py             # 标注扩展测试（39 个用例）
+├── test_web_demo.py               # Web 演示测试（31 个用例）
 ├── 方法论.md                       # 核酸序列 BigSMILES 表示方法论文档
 ├── CLAUDE.md                      # 项目架构文档
 ├── README.md
@@ -37,7 +44,7 @@ bigsmiles_project/
 ```bash
 cd bigsmiles_project
 
-# 1. 运行全部测试（222 个用例，验证全部功能）
+# 1. 运行全部测试（360 个用例，验证全部功能）
 python -m unittest discover -v
 
 # 2. 终端查看全部 39 个示例
@@ -65,6 +72,15 @@ python sequence_to_bigsmiles.py ACGT
 python sequence_to_bigsmiles.py AUGC --type RNA
 python sequence_to_bigsmiles.py ACGGGCCACATCAACTCATTGATAGACAATGCGTCCACTGCCCGT
 python sequence_to_bigsmiles.py ACGT --no-images --json
+
+# 9. ML 实验（模型比较 + 特征消融 + Morgan 扫描）
+python ml_experiment.py --all
+
+# 10. 性质标注演示
+python bigsmiles_annotation.py --demo
+
+# 11. Web 演示（浏览器打开 http://127.0.0.1:8765）
+python web_demo.py --port 8765
 ```
 
 ## 功能说明
@@ -352,9 +368,55 @@ python bigsmiles_fingerprint.py --demo
 python bigsmiles_fingerprint.py "*CC*" --morgan --fragments --descriptors
 ```
 
-### 7. 测试套件
+### 7. ML 回归模型 (`ml_models.py`)
 
-共 **222 个测试用例**，分布在 5 个测试文件中：
+纯 Python 实现的 7 种回归模型，无 numpy/sklearn 依赖。
+
+| 模型 | 说明 |
+|------|------|
+| `RidgeRegressor` | L2 正则化线性回归（梯度下降） |
+| `LassoRegressor` | L1 正则化线性回归（近端梯度下降） |
+| `ElasticNetRegressor` | L1+L2 混合正则化 |
+| `KNNRegressor` | K 近邻回归 |
+| `DecisionTreeRegressor` | CART 决策树 |
+| `RandomForestRegressor` | 随机森林（Bagging + 特征采样） |
+| `GradientBoostingRegressor` | 梯度提升回归 |
+
+**统一接口：** `fit(X, y)` / `predict(X)` / `fit_predict(X_train, y_train, X_test)`
+
+**工具函数：** `normalize()`, `train_test_split()`, `k_fold_indices()`, `cross_validate()`, `r2_score()`, `mae_score()`, `rmse_score()`, `mape_score()`
+
+### 8. Tg 预测实验框架 (`ml_experiment.py`)
+
+基于 Bicerano 数据集的系统实验框架：
+
+| 函数 | 说明 |
+|------|------|
+| `build_dataset()` | 304 聚合物 → 特征矩阵（Morgan + 片段 + 描述符） |
+| `run_model_comparison()` | 7 模型 K 折交叉验证基准测试 |
+| `run_feature_ablation()` | Morgan-only / fragments-only / descriptors-only 对比 |
+| `run_morgan_sweep()` | Morgan 指纹超参数扫描（bits × radius） |
+| `run_holdout_evaluation()` | 留出法单模型评估 |
+| `run_full_experiment()` | 一键运行全部实验 |
+
+### 9. 性质标注扩展 (`bigsmiles_annotation.py`)
+
+在 BigSMILES 后附加性质标注，语法：`{[$]CC[$]}|Tg=373K;Mn=50000|`
+
+- 支持 15 种已知聚合物性质（Tg, Tm, Mn, Mw, PDI 等）及自定义属性
+- API：`parse_annotation()`, `add_annotation()`, `validate_annotation()`
+
+### 10. Web 演示 (`web_demo.py`)
+
+基于标准库 `http.server` 的端到端 Web 应用：
+
+- **流水线：** BigSMILES 输入 → 语法检查 → 解析 → 指纹 → Tg 预测
+- **JSON API：** `/api/check`, `/api/parse`, `/api/fingerprint`, `/api/predict`, `/api/pipeline`
+- 单页 HTML 前端，实时分析
+
+### 11. 测试套件
+
+共 **360 个测试用例**，分布在 8 个测试文件中：
 
 **`test_bigsmiles.py`（65 个用例）：**
 
@@ -413,7 +475,36 @@ python bigsmiles_fingerprint.py "*CC*" --morgan --fragments --descriptors
 | BigSMILES 生成 (`TestBigSMILESGenerator`) | 5 | 匹配 13.1/13.2 示例、通过检查器、序列无关性 |
 | 图像生成 (`TestImageGeneration`) | 4 | 短/中/长序列图像生成、端到端编排 |
 
-### 8. 方法论文档 (`方法论.md`)
+**`test_ml_models.py`（69 个用例）：**
+
+| 类别 | 数量 | 说明 |
+|------|------|------|
+| 数据工具 (`TestNormalize`, `TestTrainTestSplit`, `TestKFoldIndices`) | 14 | 归一化、数据划分、K 折索引 |
+| 评估指标 (`TestMetrics`) | 8 | R2, MAE, RMSE, MAPE |
+| 7 种模型各自测试 | 33 | fit/predict、超参数、合成数据 R2 |
+| 交叉验证 (`TestCrossValidate`) | 5 | 多模型 CV、结果结构 |
+| 模型工厂 (`TestModelFactory`) | 5 | 大小写、kwargs 传递、未知模型 |
+| 回归测试 (`TestKNNParameterAlias`) | 4 | n_neighbors 别名、CV 不冲突 |
+
+**`test_annotation.py`（39 个用例）：**
+
+| 类别 | 数量 | 说明 |
+|------|------|------|
+| 标注解析 | 15 | 已知属性、自定义属性、多属性、别名 |
+| 标注添加 | 8 | 追加/替换标注、空标注 |
+| 标注校验 | 10 | 类型检查、必填字段、单位匹配 |
+| CLI | 6 | 演示模式、查询、格式化输出 |
+
+**`test_web_demo.py`（31 个用例）：**
+
+| 类别 | 数量 | 说明 |
+|------|------|------|
+| API 端点 | 15 | check/parse/fingerprint/predict/pipeline |
+| 错误处理 | 8 | 无效输入、空请求、格式错误 |
+| HTML 前端 | 4 | 页面加载、静态资源 |
+| 集成测试 | 4 | 端到端流水线 |
+
+### 12. 方法论文档 (`方法论.md`)
 
 详细阐述核酸序列 BigSMILES 表示的方法选择依据：
 

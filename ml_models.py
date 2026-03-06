@@ -401,7 +401,7 @@ class KNNRegressor(BaseRegressor):
     Stores training data and predicts by averaging k nearest neighbors.
     """
 
-    def __init__(self, k: int = 5, metric: str = "euclidean", n_neighbors: int = None):
+    def __init__(self, k: int = 5, metric: str = "euclidean", n_neighbors: Optional[int] = None):
         self.k = n_neighbors if n_neighbors is not None else k
         self.metric = metric
         self._X_train: List[List[float]] = []
