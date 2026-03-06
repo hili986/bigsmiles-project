@@ -1,6 +1,6 @@
 # BigSMILES Project
 
-Core codebase for BigSMILES tools: example library, syntax checker, parser/generator, Bicerano Tg dataset, structural fingerprints, and nucleic acid converter.
+Core codebase for BigSMILES tools: example library, syntax checker, parser/generator, Bicerano Tg dataset, structural fingerprints, nucleic acid converter, ML models, experiment framework, property annotation, and web demo.
 
 ## Commands
 
@@ -10,6 +10,9 @@ Core codebase for BigSMILES tools: example library, syntax checker, parser/gener
 - Convert sequence: `python sequence_to_bigsmiles.py --sequence ACGT --type DNA`
 - Fingerprint demo: `python bigsmiles_fingerprint.py --demo`
 - Dataset export: `python bicerano_tg_dataset.py --csv --json --validate`
+- ML experiment: `python ml_experiment.py --all` (model comparison + ablation + sweep)
+- Annotation demo: `python bigsmiles_annotation.py --demo`
+- Web demo: `python web_demo.py --port 8765` (opens at http://127.0.0.1:8765)
 
 ## Architecture
 
@@ -37,6 +40,28 @@ Core codebase for BigSMILES tools: example library, syntax checker, parser/gener
 - Combined feature vector + Tg ridge regression demo (no numpy/sklearn dependency)
 
 **sequence_to_bigsmiles.py** — Dual-representation: BigSMILES (polymer class) + Full SMILES (exact nucleotide sequence). 16 nucleotide SMILES fragments (4 bases × 2 forms × DNA/RNA).
+
+**ml_models.py** — Pure Python ML regression models (no numpy/sklearn):
+- 7 models: Ridge, Lasso, ElasticNet, KNN, DecisionTree, RandomForest, GradientBoosting
+- Unified `fit(X, y)` / `predict(X)` / `fit_predict()` interface
+- Utilities: `normalize()`, `train_test_split()`, `k_fold_indices()`, `cross_validate()`
+- Metrics: `r2_score()`, `mae_score()`, `rmse_score()`, `mape_score()`
+
+**ml_experiment.py** — Tg prediction experiment framework:
+- `build_dataset()`: Bicerano data → feature matrix (Morgan + fragments + descriptors)
+- `run_model_comparison()`: 7-model benchmark via k-fold CV
+- `run_feature_ablation()`: compare Morgan-only, fragments-only, etc.
+- `run_morgan_sweep()`: sweep Morgan radius × bits
+
+**bigsmiles_annotation.py** — BigSMILES property annotation extension:
+- Syntax: `{[$]CC[$]}|Tg=373K;Mn=50000|`
+- 15 known polymer properties with aliases, units, types
+- API: `parse_annotation()`, `add_annotation()`, `validate_annotation()`
+
+**web_demo.py** — End-to-end web demo (stdlib http.server):
+- Pipeline: BigSMILES input → syntax check → parse → fingerprint → Tg prediction
+- JSON API: `/api/check`, `/api/parse`, `/api/fingerprint`, `/api/predict`, `/api/pipeline`
+- Single-page HTML frontend with live analysis
 
 ## Code Patterns
 
