@@ -23,8 +23,8 @@ bigsmiles_project/
 ├── test_bigsmiles_fingerprint.py  # 指纹测试（48 个用例）
 ├── test_sequence_to_bigsmiles.py  # 序列转换工具测试（31 个用例）
 ├── test_ml_models.py              # ML 模型测试（69 个用例）
-├── test_annotation.py             # 标注扩展测试（39 个用例）
-├── test_web_demo.py               # Web 演示测试（31 个用例）
+├── test_bigsmiles_annotation.py   # 标注扩展测试（47 个用例）
+├── test_web_demo.py               # Web 演示测试（22 个用例）
 ├── test_helm_to_3d.py             # HELM 转换工具测试（55 个用例）
 ├── 方法论.md                       # 核酸序列 BigSMILES 表示方法论文档
 ├── CLAUDE.md                      # 项目架构文档
@@ -219,6 +219,22 @@ python helm_to_3d.py AUGC --type RNA -o my_rna.sdf --json
 }
 ```
 
+**CLI 用法：**
+
+```bash
+# 终端输出全部 39 个示例（按类别分组）
+python bigsmiles_examples.py
+# 预期: 13 个类别，每条包含 BigSMILES、SMILES、中英文说明
+
+# 导出 JSON
+python bigsmiles_examples.py --json
+# 预期: 生成 output/bigsmiles_examples.json（39 条完整记录）
+
+# 生成重复单元结构图（需 RDKit）
+python bigsmiles_examples.py --images
+# 预期: 生成 output/images/*.png（每个聚合物一张 2D 结构图）
+```
+
 **API 函数：**
 
 | 函数 | 说明 |
@@ -263,6 +279,22 @@ python helm_to_3d.py AUGC --type RNA -o my_rna.sdf --json
 | 5 | SMILES 有效性 | 描述符替换为 `*` 后由 RDKit 校验 |
 | 6 | 描述符一致性 | 同一 `{}` 内不混用 `$` 和 `<>` |
 | 7 | 最少描述符数 | 重复单元 >= 2 个，端基 = 1 个 |
+
+**CLI 用法：**
+
+```bash
+# 检查单个 BigSMILES 字符串
+python bigsmiles_checker.py "{[$]CC[$]}"
+# 预期: [OK] {[$]CC[$]}
+
+# 检查无效字符串（描述符混用）
+python bigsmiles_checker.py "{[$]CC[>]}"
+# 预期: [ERROR] 混用了 AA 型($)和 AB 型(<>)描述符
+
+# 检查多个字符串
+python bigsmiles_checker.py "{[$]CC[$]}" "{[>]CCO[<]}" "CC(=O)O"
+# 预期: 逐条显示 [OK] 或 [ERROR]
+```
 
 **公共 API：**
 
@@ -398,6 +430,29 @@ topo = bp.get_topology("{[$]CC(c1ccccc1)[$]}{[$]CC(C)(C(=O)OC)[$]}")
 errors = bp.validate("{[$]CC[$]}")  # [] = 无错误
 ```
 
+**CLI 用法：**
+
+```bash
+# 解析 BigSMILES 并显示拓扑、重复单元、描述符
+python bigsmiles_parser.py "{[$]CC[$]}" --topology --units --descriptors
+# 预期:
+#   拓扑: linear_homopolymer
+#   重复单元: *CC* (depth=0)
+#   描述符: [$] × 2 (type=AA)
+
+# 共聚物拓扑分析
+python bigsmiles_parser.py "{[$]CC[$],[$]CC(CC)[$]}" --topology
+# 预期: 拓扑: random_copolymer
+
+# 嵌段共聚物
+python bigsmiles_parser.py "{[$]CC(c1ccccc1)[$]}{[$]CC(C)(C(=O)OC)[$]}" --topology
+# 预期: 拓扑: block_copolymer
+
+# 往返一致性验证
+python bigsmiles_parser.py "{[$]CC[$]}" --round-trip
+# 预期: 输入 == 输出（字符串完全一致）
+```
+
 **拓扑检测支持的类型：**
 
 | 拓扑 | 示例 |
@@ -478,6 +533,21 @@ python bigsmiles_fingerprint.py "*CC*" --morgan --fragments --descriptors
 | `DecisionTreeRegressor` | CART 决策树 | ~0.68 |
 | `RandomForestRegressor` | Bagging + 特征采样 | ~0.80 |
 | `GradientBoostingRegressor` | 梯度提升回归 | **~0.85** |
+
+> **注意：** `ml_models.py` 主要作为库模块使用，通过 `ml_experiment.py`（工具 8）调用或在 Python 中导入。
+
+**CLI 用法（诊断模式）：**
+
+```bash
+python ml_models.py
+# 预期: 列出 7 种可用模型 + 合成数据 sanity check
+#   ML Models Library — Available models:
+#     ridge: ...
+#     knn: ...
+#   --- Synthetic data sanity check ---
+#     ridge         R2=0.xxxx  MAE=0.xxxx
+#     knn           R2=0.xxxx  MAE=0.xxxx
+```
 
 **统一接口：**
 
@@ -755,23 +825,22 @@ python helm_to_3d.py AUGC --type RNA -o my_rna.sdf --json
 | 模型工厂 (`TestModelFactory`) | 5 | 大小写、kwargs 传递、未知模型 |
 | 回归测试 (`TestKNNParameterAlias`) | 4 | n_neighbors 别名、CV 不冲突 |
 
-**`test_annotation.py`（39 个用例）：**
+**`test_bigsmiles_annotation.py`（47 个用例）：**
 
 | 类别 | 数量 | 说明 |
 |------|------|------|
-| 标注解析 | 15 | 已知属性、自定义属性、多属性、别名 |
-| 标注添加 | 8 | 追加/替换标注、空标注 |
-| 标注校验 | 10 | 类型检查、必填字段、单位匹配 |
-| CLI | 6 | 演示模式、查询、格式化输出 |
+| 解析 (`TestParseAnnotation`, `TestAnnotatedBigSMILES`) | 19 | 已知属性、自定义属性、多属性、别名、完整标注 |
+| 操作 (`TestAddAnnotation`, `TestRemoveAnnotation`, `TestMergeAnnotations`) | 9 | 追加/删除/合并标注 |
+| 校验 (`TestValidateAnnotation`, `TestPropertySchema`) | 10 | 类型检查、属性模式、单位匹配 |
+| 边界与批量 (`TestEdgeCases`, `TestBatchOperations`) | 9 | 边界情况、批量操作 |
 
-**`test_web_demo.py`（31 个用例）：**
+**`test_web_demo.py`（22 个用例）：**
 
 | 类别 | 数量 | 说明 |
 |------|------|------|
-| API 端点 | 15 | check/parse/fingerprint/predict/pipeline |
-| 错误处理 | 8 | 无效输入、空请求、格式错误 |
-| HTML 前端 | 4 | 页面加载、静态资源 |
-| 集成测试 | 4 | 端到端流水线 |
+| API 端点 (`TestHandleCheck/Parse/Fingerprint/Predict`) | 15 | check(4)/parse(4)/fingerprint(4)/predict(3) |
+| 流水线 (`TestHandlePipeline`) | 4 | 端到端 pipeline API |
+| HTML 前端 (`TestGetIndexHtml`) | 3 | 页面加载、内容检查 |
 
 **`test_helm_to_3d.py`（55 个用例）：**
 
@@ -831,3 +900,7 @@ O{[>]...[<];[>]...O}               核酸聚合物（ssDNA/ssRNA）
 - Pistoia Alliance. *HELM Notation.* https://pistoiaalliance.atlassian.net/wiki/spaces/PUB/pages/6619143/HELM+Notation
 - Choi, S.; et al. *A curated dataset of glass transition temperatures for polymers.* Scientific Data 11, 363 (2024).
 - RDKit: Open-Source Cheminformatics. https://www.rdkit.org/
+
+## 许可证
+
+本项目为同济大学 SITP 科研项目成果，仅用于学术研究和教学目的。如需引用或复用，请联系项目指导老师胡勇教授。
