@@ -13,6 +13,8 @@ Core codebase for BigSMILES tools: example library, syntax checker, parser/gener
 - ML experiment: `python ml_experiment.py --all` (model comparison + ablation + sweep)
 - Annotation demo: `python bigsmiles_annotation.py --demo`
 - Web demo: `python web_demo.py --port 8765` (opens at http://127.0.0.1:8765)
+- HELM to 3D: `python helm_to_3d.py 'RNA1{R(A)P.R(C)P.R(G)P.R(U)}$$$$'`
+- HELM to 3D (sequence): `python helm_to_3d.py ACGT --type DNA -o output.sdf --json`
 
 ## Architecture
 
@@ -57,6 +59,14 @@ Core codebase for BigSMILES tools: example library, syntax checker, parser/gener
 - Syntax: `{[$]CC[$]}|Tg=373K;Mn=50000|`
 - 15 known polymer properties with aliases, units, types
 - API: `parse_annotation()`, `add_annotation()`, `validate_annotation()`
+
+**helm_to_3d.py** — HELM nucleic acid to 3D molecular model converter:
+- HELM parser: `R(A)P`, `[dR](T)`, `dR(G)P` monomer notation
+- Dataclass AST: `HELMMonomer`, `HELMChain`, `HELMParseResult`
+- 16 nucleotide SMILES fragments (4 bases × 2 positions × DNA/RNA)
+- Auto-detect input format (HELM vs simplified sequence)
+- 3D generation: ETKDG embed + UFF/MMFF optimization → SDF file
+- API: `parse_helm()`, `sequence_to_helm()`, `build_smiles_from_chain()`, `generate_3d_sdf()`, `helm_to_3d()`
 
 **web_demo.py** — End-to-end web demo (stdlib http.server):
 - Pipeline: BigSMILES input → syntax check → parse → fingerprint → Tg prediction

@@ -16,6 +16,7 @@ bigsmiles_project/
 ├── ml_experiment.py               # Tg 预测实验框架（模型比较 + 特征消融 + 超参扫描）
 ├── bigsmiles_annotation.py        # BigSMILES 性质标注扩展
 ├── web_demo.py                    # 端到端 Web 演示（语法检查 → 解析 → 指纹 → Tg 预测）
+├── helm_to_3d.py                  # HELM 核酸序列 → 3D 分子模型（SDF）转换工具
 ├── test_bigsmiles.py              # 示例库 & 检查器测试（65 个用例）
 ├── test_bigsmiles_parser.py       # 解析器测试（41 个用例）
 ├── test_bicerano_tg.py            # 数据集测试（37 个用例）
@@ -24,6 +25,7 @@ bigsmiles_project/
 ├── test_ml_models.py              # ML 模型测试（69 个用例）
 ├── test_annotation.py             # 标注扩展测试（39 个用例）
 ├── test_web_demo.py               # Web 演示测试（31 个用例）
+├── test_helm_to_3d.py             # HELM 转换工具测试（55 个用例）
 ├── 方法论.md                       # 核酸序列 BigSMILES 表示方法论文档
 ├── CLAUDE.md                      # 项目架构文档
 ├── README.md
@@ -31,7 +33,8 @@ bigsmiles_project/
     ├── bigsmiles_examples.json    # 示例库 JSON 导出
     ├── images/                    # RDKit 生成的重复单元结构图（PNG）
     ├── sequence_images/           # 核酸序列 3D 结构(.sdf) + 2D 着色图(.png)
-    └── sequence_records/          # 每次转换自动保存的 JSON 记录
+    ├── sequence_records/          # 每次转换自动保存的 JSON 记录
+    └── helm_3d/                   # HELM 转换生成的 SDF 文件和 JSON 记录
 ```
 
 ## 环境要求
@@ -44,7 +47,7 @@ bigsmiles_project/
 ```bash
 cd bigsmiles_project
 
-# 1. 运行全部测试（360 个用例，验证全部功能）
+# 1. 运行全部测试（415 个用例，验证全部功能）
 python -m unittest discover -v
 
 # 2. 终端查看全部 39 个示例
@@ -81,6 +84,11 @@ python bigsmiles_annotation.py --demo
 
 # 11. Web 演示（浏览器打开 http://127.0.0.1:8765）
 python web_demo.py --port 8765
+
+# 12. HELM 核酸序列 → 3D 分子模型
+python helm_to_3d.py 'RNA1{R(A)P.R(C)P.R(G)P.R(U)}$$$$'
+python helm_to_3d.py ACGT --type DNA
+python helm_to_3d.py AUGC --type RNA -o my_rna.sdf --json
 ```
 
 ## 功能说明
@@ -414,9 +422,54 @@ python bigsmiles_fingerprint.py "*CC*" --morgan --fragments --descriptors
 - **JSON API：** `/api/check`, `/api/parse`, `/api/fingerprint`, `/api/predict`, `/api/pipeline`
 - 单页 HTML 前端，实时分析
 
-### 11. 测试套件
+### 11. HELM 核酸序列 → 3D 分子模型 (`helm_to_3d.py`)
 
-共 **360 个测试用例**，分布在 8 个测试文件中：
+将 HELM（Hierarchical Editing Language for Macromolecules）核酸序列转换为 3D 分子结构（SDF 格式）。
+
+**支持的输入格式：**
+
+| 格式 | 示例 |
+|------|------|
+| 标准 HELM | `RNA1{R(A)P.R(C)P.R(G)P.R(U)}$$$$` |
+| 简化碱基序列 | `ACGT`（配合 `--type DNA/RNA`） |
+
+**核心流程：**
+
+```
+HELM 输入 → 解析（AST） → SMILES 拼接 → RDKit 验证 → ETKDG 3D 嵌入 → UFF/MMFF 力场优化 → SDF 文件
+```
+
+**功能特点：**
+- 完整 HELM 解析器：支持 `R(A)P`、`[dR](T)`、`dR(G)P` 等单体表示
+- 16 种核苷酸 SMILES 片段（4 碱基 × 2 位置 × DNA/RNA）
+- 自动检测输入格式（HELM vs 简化序列）
+- 3D 构象生成（ETKDGv3 + 力场优化）
+- JSON 记录自动保存
+
+**CLI 用法：**
+
+```bash
+# HELM 标准输入
+python helm_to_3d.py 'RNA1{R(A)P.R(C)P.R(G)P.R(U)}$$$$'
+
+# 简化序列输入
+python helm_to_3d.py ACGT --type DNA
+python helm_to_3d.py AUGC --type RNA -o my_rna.sdf --json
+```
+
+**API 函数：**
+
+| 函数 | 说明 |
+|------|------|
+| `parse_helm(helm_string)` | 解析 HELM 字符串为 `HELMParseResult` AST |
+| `sequence_to_helm(seq, type)` | 简化序列转 HELM 格式 |
+| `build_smiles_from_chain(chain)` | 从解析链构建完整 SMILES |
+| `generate_3d_sdf(smiles, output)` | SMILES → 3D SDF 文件 |
+| `helm_to_3d(input, ...)` | 主编排函数：输入 → 解析 → 3D 生成 |
+
+### 12. 测试套件
+
+共 **415 个测试用例**，分布在 9 个测试文件中：
 
 **`test_bigsmiles.py`（65 个用例）：**
 
@@ -504,7 +557,21 @@ python bigsmiles_fingerprint.py "*CC*" --morgan --fragments --descriptors
 | HTML 前端 | 4 | 页面加载、静态资源 |
 | 集成测试 | 4 | 端到端流水线 |
 
-### 12. 方法论文档 (`方法论.md`)
+**`test_helm_to_3d.py`（55 个用例）：**
+
+| 类别 | 数量 | 说明 |
+|------|------|------|
+| 单体解析 (`TestHELMMonomerParsing`) | 11 | R(A)P, [dR](T)P, dR(G)P, 大小写, 全碱基, 无效输入 |
+| 链解析 (`TestHELMChainParsing`) | 7 | RNA/DNA 链, 单核苷酸, 长链, 自动修正 |
+| HELM 完整解析 (`TestHELMFullParsing`) | 5 | 标准 RNA/DNA HELM, V2.0, 缺失分隔符, 空聚合物 |
+| 链校验 (`TestChainValidation`) | 3 | DNA+U 拒绝, RNA+T 拒绝, 空链 |
+| 序列转 HELM (`TestSequenceToHelm`) | 9 | DNA/RNA 序列, 单碱基, 方向标记, 无效碱基 |
+| SMILES 构建 (`TestSMILESBuilder`) | 8 | 5'-OH 起始, 磷酸基团, 2'-OH, RDKit 验证 |
+| HELM 重建 (`TestHELMReconstruction`) | 3 | RNA/DNA 往返, 序列→HELM→解析→序列 |
+| 端到端 (`TestEndToEnd`) | 5 | HELM 输入, 序列输入, 自动检测 RNA, SDF 生成, JSON 记录 |
+| 边界情况 (`TestEdgeCases`) | 4 | 空白符, 大小写不敏感, HELMParseError 子类 |
+
+### 13. 方法论文档 (`方法论.md`)
 
 详细阐述核酸序列 BigSMILES 表示的方法选择依据：
 
