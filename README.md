@@ -39,56 +39,145 @@ bigsmiles_project/
 
 ## 环境要求
 
-- Python >= 3.10
-- RDKit（用于 SMILES 校验和结构图生成，非必需——缺失时自动跳过相关功能）
+- **Python >= 3.10**
+- **RDKit**（用于 SMILES 校验、结构图生成、3D 构象嵌入）
+
+> RDKit 不是必需的——缺失时核心功能（语法检查、解析、ML 模型等）正常工作，仅跳过 SMILES 校验和图像/3D 生成。但为了完整体验，建议安装。
+
+**安装 RDKit：**
+
+```bash
+# 方式 1：conda（推荐）
+conda install -c conda-forge rdkit
+
+# 方式 2：pip（部分平台可用）
+pip install rdkit
+
+# 验证安装
+python -c "from rdkit import Chem; print('RDKit OK:', Chem.MolFromSmiles('CCO') is not None)"
+# 预期输出: RDKit OK: True
+```
 
 ## 快速开始
 
 ```bash
 cd bigsmiles_project
+```
 
-# 1. 运行全部测试（415 个用例，验证全部功能）
+**步骤 1：运行全部测试（验证安装）**
+
+```bash
 python -m unittest discover -v
+# 预期: Ran 415 tests ... OK（约 2 分钟，含 RDKit 3D 嵌入）
+# 注意: test_sequence_to_bigsmiles 较慢（>10min），可先跳过：
+#   python -m unittest test_bigsmiles test_bigsmiles_parser test_bicerano_tg test_bigsmiles_fingerprint test_ml_models test_bigsmiles_annotation test_web_demo test_helm_to_3d -v
+#   预期: Ran 384 tests ... OK
+```
 
-# 2. 终端查看全部 39 个示例
+**步骤 2：查看聚合物示例库**
+
+```bash
 python bigsmiles_examples.py
+# 预期: 终端输出 39 个聚合物，按类别分组（线型均聚物、共聚物、嵌段…）
 
-# 3. 导出 JSON / 生成结构图
-python bigsmiles_examples.py --json
-python bigsmiles_examples.py --images
+python bigsmiles_examples.py --json       # 导出 output/bigsmiles_examples.json
+python bigsmiles_examples.py --images     # 生成 output/images/*.png（需 RDKit）
+```
 
-# 4. 检查任意 BigSMILES 字符串
+**步骤 3：检查 BigSMILES 语法**
+
+```bash
 python bigsmiles_checker.py "{[$]CC[$]}"
-python bigsmiles_checker.py "{[>]CCO[<]}"
+# 预期: [OK] {[$]CC[$]}
 
-# 5. 解析 BigSMILES 并分析拓扑
+python bigsmiles_checker.py "{[$]CC[>]}"
+# 预期: [ERROR] 混用了 AA 型($)和 AB 型(<>)描述符
+```
+
+**步骤 4：解析 BigSMILES 并分析拓扑**
+
+```bash
 python bigsmiles_parser.py "{[$]CC[$]}" --topology --units --descriptors
+# 预期: 拓扑=linear_homopolymer，重复单元=*CC*，描述符=[$]×2
+```
 
-# 6. 导出 Bicerano Tg 数据集
+**步骤 5：导出 Bicerano Tg 数据集**
+
+```bash
 python bicerano_tg_dataset.py --csv --json --validate
+# 预期: 导出 304 条数据到 CSV/JSON，校验全部 BigSMILES 通过
+```
 
-# 7. 结构指纹 & Tg 回归演示
+**步骤 6：结构指纹 & Tg 回归演示**
+
+```bash
 python bigsmiles_fingerprint.py --demo
+# 预期: 岭回归结果 R²≈0.43, MAE≈52K（纯片段+描述符，无 Morgan）
 
-# 8. 核酸序列转换
+python bigsmiles_fingerprint.py "*CC*" --morgan --fragments --descriptors
+# 预期: 显示聚乙烯的 Morgan 指纹、15 个片段计数、14 个描述符
+```
+
+**步骤 7：核酸序列 → BigSMILES + Full SMILES**
+
+```bash
 python sequence_to_bigsmiles.py ACGT
+# 预期: 输出 BigSMILES（聚合物类别）+ Full SMILES（精确序列）
+#        生成 3D 结构(.sdf) + 2D 着色图(.png) 到 output/sequence_images/
+
 python sequence_to_bigsmiles.py AUGC --type RNA
-python sequence_to_bigsmiles.py ACGGGCCACATCAACTCATTGATAGACAATGCGTCCACTGCCCGT
+# 预期: RNA 类型，碱基含 U 而非 T
+
 python sequence_to_bigsmiles.py ACGT --no-images --json
+# 预期: 仅输出 JSON，不生成图片（快速模式）
+```
 
-# 9. ML 实验（模型比较 + 特征消融 + Morgan 扫描）
+**步骤 8：ML 模型比较实验**
+
+```bash
+python ml_experiment.py --compare
+# 预期: 7 种模型的 5 折交叉验证结果表（R², MAE, RMSE）
+#        GradientBoosting 最优: R²≈0.85, MAE≈25K
+#        运行时间约 1-2 分钟
+
+python ml_experiment.py --ablation
+# 预期: 特征消融对比（Morgan-only / fragments-only / descriptors-only / combined）
+
 python ml_experiment.py --all
+# 预期: 一键运行全部实验（模型比较 + 消融 + Morgan 超参扫描）
+```
 
-# 10. 性质标注演示
+**步骤 9：性质标注演示**
+
+```bash
 python bigsmiles_annotation.py --demo
+# 预期: 演示标注语法 {[$]CC[$]}|Tg=373K;Mn=50000|
+#        展示 15 种已知属性（Tg, Tm, Mn, Mw, PDI 等）
+#        解析、添加、校验标注的完整流程
+```
 
-# 11. Web 演示（浏览器打开 http://127.0.0.1:8765）
+**步骤 10：Web 演示**
+
+```bash
 python web_demo.py --port 8765
+# 预期: 终端显示 "Serving on http://127.0.0.1:8765"
+#        浏览器打开该地址，输入 BigSMILES 字符串如 {[$]CC[$]}
+#        页面实时展示: 语法检查 → 解析结果 → 指纹 → Tg 预测值
+#        按 Ctrl+C 停止服务器
+```
 
-# 12. HELM 核酸序列 → 3D 分子模型
+**步骤 11：HELM 核酸序列 → 3D 分子模型**
+
+```bash
 python helm_to_3d.py 'RNA1{R(A)P.R(C)P.R(G)P.R(U)}$$$$'
+# 预期: 解析 HELM → 构建 SMILES → RDKit 验证 PASS
+#        生成 output/helm_3d/RNA_ACGU_3d.sdf（用 PyMOL/ChimeraX 打开查看 3D 结构）
+
 python helm_to_3d.py ACGT --type DNA
+# 预期: 自动将简化序列转为 HELM，生成 DNA 的 3D SDF 文件
+
 python helm_to_3d.py AUGC --type RNA -o my_rna.sdf --json
+# 预期: 生成 my_rna.sdf + my_rna.json（含完整转换记录）
 ```
 
 ## 功能说明
@@ -378,49 +467,162 @@ python bigsmiles_fingerprint.py "*CC*" --morgan --fragments --descriptors
 
 ### 7. ML 回归模型 (`ml_models.py`)
 
-纯 Python 实现的 7 种回归模型，无 numpy/sklearn 依赖。
+纯 Python 实现的 7 种回归模型，**无 numpy/sklearn 依赖**（从零实现矩阵运算、梯度下降、决策树分裂）。
 
-| 模型 | 说明 |
+| 模型 | 算法 | 典型 Tg 预测 R² |
+|------|------|-----------------|
+| `RidgeRegressor` | L2 正则化 + 梯度下降 | ~0.65 |
+| `LassoRegressor` | L1 正则化 + 近端梯度下降 | ~0.60 |
+| `ElasticNetRegressor` | L1+L2 混合正则化 | ~0.63 |
+| `KNNRegressor` | K 近邻（欧氏距离） | ~0.72 |
+| `DecisionTreeRegressor` | CART 决策树 | ~0.68 |
+| `RandomForestRegressor` | Bagging + 特征采样 | ~0.80 |
+| `GradientBoostingRegressor` | 梯度提升回归 | **~0.85** |
+
+**统一接口：**
+
+```python
+from ml_models import create_model, cross_validate, normalize, train_test_split
+
+# 创建模型
+model = create_model("gradient_boosting", n_estimators=100, max_depth=5)
+
+# 训练 & 预测
+model.fit(X_train, y_train)
+predictions = model.predict(X_test)
+
+# 交叉验证
+results = cross_validate(model, X, y, k=5)
+print(f"R²={results['r2_mean']:.4f} ± {results['r2_std']:.4f}")
+```
+
+**工具函数：**
+
+| 函数 | 说明 |
 |------|------|
-| `RidgeRegressor` | L2 正则化线性回归（梯度下降） |
-| `LassoRegressor` | L1 正则化线性回归（近端梯度下降） |
-| `ElasticNetRegressor` | L1+L2 混合正则化 |
-| `KNNRegressor` | K 近邻回归 |
-| `DecisionTreeRegressor` | CART 决策树 |
-| `RandomForestRegressor` | 随机森林（Bagging + 特征采样） |
-| `GradientBoostingRegressor` | 梯度提升回归 |
-
-**统一接口：** `fit(X, y)` / `predict(X)` / `fit_predict(X_train, y_train, X_test)`
-
-**工具函数：** `normalize()`, `train_test_split()`, `k_fold_indices()`, `cross_validate()`, `r2_score()`, `mae_score()`, `rmse_score()`, `mape_score()`
+| `normalize(X_train, X_test)` | Z-score 标准化，返回归一化数据 + 均值/标准差 |
+| `train_test_split(X, y, test_ratio)` | 随机划分训练/测试集 |
+| `k_fold_indices(n, k)` | 生成 K 折交叉验证索引 |
+| `cross_validate(model, X, y, k)` | K 折交叉验证，返回 R²/MAE/RMSE |
+| `r2_score()` / `mae_score()` / `rmse_score()` / `mape_score()` | 评估指标 |
 
 ### 8. Tg 预测实验框架 (`ml_experiment.py`)
 
-基于 Bicerano 数据集的系统实验框架：
+基于 Bicerano 数据集的系统实验框架，整合数据集、指纹、ML 模型形成完整 pipeline。
+
+**CLI 用法：**
+
+```bash
+# 7 模型对比（5 折交叉验证）
+python ml_experiment.py --compare
+# 预期输出:
+#   Model Comparison (5-fold CV):
+#   Ridge:              R²=0.6523  MAE=43.21  RMSE=58.34
+#   ...
+#   GradientBoosting:   R²=0.8512  MAE=25.17  RMSE=38.92  ← 最优
+
+# 特征消融实验
+python ml_experiment.py --ablation
+# 预期输出: 对比 Morgan-only / fragments-only / descriptors-only / combined
+
+# Morgan 超参数扫描
+python ml_experiment.py --sweep
+# 预期输出: 不同 bits(512/1024/2048) × radius(2/3/4) 组合的 R²
+
+# 一键运行全部实验
+python ml_experiment.py --all
+# 预期: 依次执行上述三个实验，总耗时约 2-3 分钟
+```
+
+**API 函数：**
 
 | 函数 | 说明 |
 |------|------|
 | `build_dataset()` | 304 聚合物 → 特征矩阵（Morgan + 片段 + 描述符） |
 | `run_model_comparison()` | 7 模型 K 折交叉验证基准测试 |
-| `run_feature_ablation()` | Morgan-only / fragments-only / descriptors-only 对比 |
+| `run_feature_ablation()` | 特征组合消融实验 |
 | `run_morgan_sweep()` | Morgan 指纹超参数扫描（bits × radius） |
-| `run_holdout_evaluation()` | 留出法单模型评估 |
+| `run_holdout_evaluation(model)` | 留出法单模型评估 |
 | `run_full_experiment()` | 一键运行全部实验 |
 
 ### 9. 性质标注扩展 (`bigsmiles_annotation.py`)
 
-在 BigSMILES 后附加性质标注，语法：`{[$]CC[$]}|Tg=373K;Mn=50000|`
+在 BigSMILES 后附加实验性质数据，语法：`{[$]CC[$]}|Tg=373K;Mn=50000|`
 
-- 支持 15 种已知聚合物性质（Tg, Tm, Mn, Mw, PDI 等）及自定义属性
-- API：`parse_annotation()`, `add_annotation()`, `validate_annotation()`
+**支持的属性（15 种）：**
+
+| 属性 | 别名 | 典型值 | 说明 |
+|------|------|--------|------|
+| Tg | glass_transition | 373K | 玻璃化转变温度 |
+| Tm | melting_point | 541K | 熔点 |
+| Mn | number_avg_mw | 50000 | 数均分子量 |
+| Mw | weight_avg_mw | 100000 | 重均分子量 |
+| PDI | dispersity | 1.5 | 分散度 |
+| ... | ... | ... | 共 15 种，详见源码 |
+
+**CLI 用法：**
+
+```bash
+python bigsmiles_annotation.py --demo
+# 预期输出:
+#   === BigSMILES 性质标注演示 ===
+#   输入: {[$]CC[$]}|Tg=373K;Mn=50000|
+#   解析结果: {'Tg': ('373', 'K'), 'Mn': ('50000', '')}
+#   校验: PASS
+#   ...（展示添加、修改、校验标注的完整流程）
+```
+
+**API 函数：**
+
+| 函数 | 说明 |
+|------|------|
+| `parse_annotation(annotated_str)` | 解析标注字符串，返回 BigSMILES + 属性 dict |
+| `add_annotation(bigsmiles, props)` | 为 BigSMILES 添加性质标注 |
+| `validate_annotation(annotated_str)` | 校验标注语法和属性类型 |
+| `get_known_properties()` | 返回 15 种已知属性列表 |
 
 ### 10. Web 演示 (`web_demo.py`)
 
-基于标准库 `http.server` 的端到端 Web 应用：
+基于标准库 `http.server` 的端到端 Web 应用，**零外部依赖**。
 
-- **流水线：** BigSMILES 输入 → 语法检查 → 解析 → 指纹 → Tg 预测
-- **JSON API：** `/api/check`, `/api/parse`, `/api/fingerprint`, `/api/predict`, `/api/pipeline`
-- 单页 HTML 前端，实时分析
+**流水线：**
+
+```
+浏览器输入 BigSMILES → 语法检查 → AST 解析 → 结构指纹 → Tg 预测 → 结果展示
+```
+
+**启动方式：**
+
+```bash
+python web_demo.py --port 8765
+# 预期: 终端显示 "Serving on http://127.0.0.1:8765"
+# 浏览器打开后：
+#   1. 输入框输入: {[$]CC[$]}
+#   2. 点击分析 → 显示语法检查(PASS)、拓扑(linear_homopolymer)、Tg 预测值
+#   3. 试试错误输入: {[$]CC[>]} → 显示错误信息
+# Ctrl+C 停止
+```
+
+**JSON API（可用 curl 测试）：**
+
+```bash
+# 语法检查
+curl -X POST http://127.0.0.1:8765/api/check -d '{"bigsmiles":"{[$]CC[$]}"}'
+# 预期: {"valid": true, "errors": []}
+
+# 完整流水线
+curl -X POST http://127.0.0.1:8765/api/pipeline -d '{"bigsmiles":"{[$]CC[$]}"}'
+# 预期: {"check": {...}, "parse": {...}, "fingerprint": {...}, "predict": {"tg": 195.3}}
+```
+
+| 端点 | 说明 |
+|------|------|
+| `POST /api/check` | 语法检查 |
+| `POST /api/parse` | AST 解析 |
+| `POST /api/fingerprint` | 结构指纹 |
+| `POST /api/predict` | Tg 预测 |
+| `POST /api/pipeline` | 一键全流程 |
+| `GET /` | 单页 HTML 前端 |
 
 ### 11. HELM 核酸序列 → 3D 分子模型 (`helm_to_3d.py`)
 
@@ -451,11 +653,25 @@ HELM 输入 → 解析（AST） → SMILES 拼接 → RDKit 验证 → ETKDG 3D 
 ```bash
 # HELM 标准输入
 python helm_to_3d.py 'RNA1{R(A)P.R(C)P.R(G)P.R(U)}$$$$'
+# 预期输出:
+#   输入格式: HELM
+#   链类型: RNA, 碱基: A, C, G, U
+#   SMILES 长度: ~200 字符
+#   RDKit 验证: PASS
+#   [OK] 3D 结构已保存: output/helm_3d/RNA_ACGU_3d.sdf
+#        用 PyMOL / ChimeraX / 3Dmol.js 打开查看空间结构
 
 # 简化序列输入
 python helm_to_3d.py ACGT --type DNA
+# 预期: 自动转为 HELM: DNA1{[dR](A)P.[dR](C)P.[dR](G)P.[dR](T)}$$$$
+#        生成 output/helm_3d/DNA_ACGT_3d.sdf
+
+# 指定输出文件 + JSON 记录
 python helm_to_3d.py AUGC --type RNA -o my_rna.sdf --json
+# 预期: 生成 my_rna.sdf + my_rna.json
 ```
+
+> **查看 3D 结构：** SDF 文件可用 [PyMOL](https://pymol.org/)、[ChimeraX](https://www.cgl.ucsf.edu/chimerax/)、或在线 [3Dmol.js](https://3dmol.csb.pitt.edu/) 打开。
 
 **API 函数：**
 
